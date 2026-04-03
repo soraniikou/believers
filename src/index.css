@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap');
+@import 'tailwindcss';
+
+.font-belivers-script {
+  font-family: 'Great Vibes', cursive;
+  font-weight: 400;
+}
+
+#root {
+  min-height: 100svh;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border: none;
+}
+
+body {
+  margin: 0;
+}
