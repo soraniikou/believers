@@ -1,1 +1,547 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+
+const DESTINATIONS = [
+  { id: "past", label: "to the past", ja: "過去へ" },
+  { id: "deny", label: "I want to deny", ja: "否定したい" },
+  { id: "envy", label: "I want to envy", ja: "羨みたい" },
+  { id: "restart", label: "I want to start over", ja: "やり直したい" },
+  { id: "future", label: "toward the future", ja: "未来へ" },
+];
+
+const PROMPTS = {
+  past: "What are you leaving behind?",
+  deny: "What do you want to deny?",
+  envy: "What do you envy?",
+  restart: "What would you do differently?",
+  future: "What do you hope for?",
+};
+
+function Particle({ x, y, char, color, onDone }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 60 + Math.random() * 120;
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed - 80 - Math.random() * 60;
+    let start = null;
+    const duration = 1800 + Math.random() * 800;
+
+    function animate(ts) {
+      if (!start) start = ts;
+      const t = (ts - start) / duration;
+      if (t >= 1) {
+        onDone();
+        return;
+      }
+      const ease = 1 - Math.pow(1 - t, 3);
+      el.style.transform = `translate(${vx * ease}px, ${vy * ease + 30 * t * t}px) scale(${1 - t * 0.6})`;
+      el.style.opacity = t < 0.3 ? 1 : 1 - ((t - 0.3) / 0.7);
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+  }, []);
+
+  return (
+    <span
+      ref={ref}
+      style={{
+        position: "absolute",
+        left: x,
+        top: y,
+        color,
+        fontSize: "1.1rem",
+        fontFamily: "'Crimson Pro', serif",
+        letterSpacing: "0.05em",
+        pointerEvents: "none",
+        userSelect: "none",
+        willChange: "transform, opacity",
+        textShadow: `0 0 8px ${color}`,
+      }}
+    >
+      {char}
+    </span>
+  );
+}
+
+function ReleaseCanvas({ text, onComplete }) {
+  const [particles, setParticles] = useState([]);
+  const [done, setDone] = useState(false);
+  const containerRef = useRef(null);
+  const countRef = useRef(0);
+
+  useEffect(() => {
+    if (!text || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const chars = text.split("");
+    const total = chars.length;
+    const colors = ["#a8d8f0", "#c9e8ff", "#7bbfd4", "#e0f4ff", "#5aa8c8", "#ffffff"];
+
+    const newParticles = chars.map((ch, i) => {
+      const angle = (i / total) * Math.PI * 2;
+      const radius = Math.min(30, total * 1.5);
+      return {
+        id: i,
+        char: ch,
+        x: cx + Math.cos(angle) * radius - 6,
+        y: cy + Math.sin(angle) * radius - 10,
+        color: colors[i % colors.length],
+      };
+    });
+
+    countRef.current = total;
+    setParticles(newParticles);
+  }, [text]);
+
+  const handleDone = useCallback(() => {
+    countRef.current -= 1;
+    if (countRef.current <= 0) {
+      setDone(true);
+      setTimeout(onComplete, 600);
+    }
+  }, [onComplete]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+      }}
+    >
+      {particles.map((p) => (
+        <Particle key={p.id} {...p} onDone={handleDone} />
+      ))}
+      {done && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            animation: "fadeIn 0.8s ease",
+          }}
+        >
+          <p style={{
+            color: "#a8d8f0",
+            fontSize: "1.1rem",
+            fontFamily: "'Crimson Pro', serif",
+            fontStyle: "italic",
+            letterSpacing: "0.12em",
+            opacity: 0.7,
+          }}>
+            it's released.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const FIRST_STAGE = [
+  { id: "past", label: "to the past" },
+  { id: "future", label: "to the future" },
+];
+
+const SECOND_STAGE = {
+  past: [
+    { id: "envy", label: "I want to envy" },
+    { id: "deny", label: "I want to deny" },
+    { id: "restart", label: "I want to start over" },
+  ],
+  future: [
+    { id: "hope", label: "hope" },
+    { id: "create", label: "create" },
+    { id: "become", label: "become" },
+  ],
+};
+
+export default function Believers() {
+  const [direction, setDirection] = useState(null);   // past | future
+  const [selected, setSelected] = useState(null);     // envy | deny | restart
+  const [text, setText] = useState("");
+  const [phase, setPhase] = useState("write");
+  const [releasing, setReleasing] = useState(false);
+  const [showCanvas, setShowCanvas] = useState(false);
+
+  const handleRelease = () => {
+    if (!text.trim()) return;
+    setReleasing(true);
+    setPhase("releasing");
+    setTimeout(() => setShowCanvas(true), 200);
+  };
+
+  const handleComplete = () => {
+    setPhase("done");
+  };
+
+  const handleReset = () => {
+    setDirection(null);
+    setSelected(null);
+    setText("");
+    setPhase("write");
+    setReleasing(false);
+    setShowCanvas(false);
+  };
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300;1,400&family=Cormorant+Garamond:ital,wght@0,300;1,300&display=swap');
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+          background: #06101a;
+          min-height: 100vh;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes softPulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.7; }
+        }
+
+        @keyframes starFloat {
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          20% { opacity: 1; }
+          100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+
+        .believers-root {
+          min-height: 100vh;
+          background: radial-gradient(ellipse at 50% 60%, #0a1e2e 0%, #06101a 60%, #030a10 100%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem;
+          position: relative;
+          overflow: hidden;
+          font-family: 'Crimson Pro', serif;
+        }
+
+        .stars {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+        }
+
+        .star {
+          position: absolute;
+          width: 2px;
+          height: 2px;
+          border-radius: 50%;
+          background: #a8d8f0;
+          animation: softPulse 3s ease-in-out infinite;
+        }
+
+        .title {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: clamp(2.4rem, 6vw, 3.5rem);
+          font-weight: 300;
+          font-style: italic;
+          color: #c9e8ff;
+          letter-spacing: 0.08em;
+          margin-bottom: 0.3rem;
+          text-shadow: 0 0 40px rgba(100, 180, 220, 0.3);
+          animation: fadeIn 1s ease;
+        }
+
+        .subtitle {
+          font-size: 0.8rem;
+          color: #4a7a94;
+          letter-spacing: 0.25em;
+          text-transform: uppercase;
+          margin-bottom: 3rem;
+          animation: fadeIn 1.2s ease;
+        }
+
+        .question {
+          font-size: clamp(1.1rem, 3vw, 1.4rem);
+          color: #7bbfd4;
+          letter-spacing: 0.06em;
+          margin-bottom: 2rem;
+          font-weight: 300;
+          animation: fadeIn 0.8s ease;
+        }
+
+        .destinations {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.7rem;
+          justify-content: center;
+          margin-bottom: 2.5rem;
+          max-width: 500px;
+          animation: fadeIn 1s ease;
+        }
+
+        .dest-btn {
+          background: transparent;
+          border: 1px solid rgba(100, 180, 220, 0.25);
+          color: #7bbfd4;
+          padding: 0.5rem 1.3rem;
+          border-radius: 999px;
+          font-family: 'Crimson Pro', serif;
+          font-size: 0.95rem;
+          letter-spacing: 0.08em;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+
+        .dest-btn:hover {
+          border-color: rgba(100, 180, 220, 0.6);
+          color: #c9e8ff;
+          background: rgba(100, 180, 220, 0.05);
+        }
+
+        .dest-btn.active {
+          border-color: #7bbfd4;
+          color: #c9e8ff;
+          background: rgba(100, 180, 220, 0.1);
+          box-shadow: 0 0 16px rgba(100, 180, 220, 0.15);
+        }
+
+        .write-area {
+          width: 100%;
+          max-width: 460px;
+          animation: fadeIn 0.6s ease;
+        }
+
+        .prompt {
+          font-size: 0.85rem;
+          color: #4a7a94;
+          letter-spacing: 0.15em;
+          margin-bottom: 0.8rem;
+          font-style: italic;
+        }
+
+        textarea {
+          width: 100%;
+          min-height: 120px;
+          background: rgba(10, 30, 46, 0.6);
+          border: 1px solid rgba(100, 180, 220, 0.2);
+          border-radius: 8px;
+          color: #c9e8ff;
+          font-family: 'Crimson Pro', serif;
+          font-size: 1.05rem;
+          line-height: 1.7;
+          padding: 1rem 1.2rem;
+          resize: none;
+          outline: none;
+          transition: border-color 0.3s;
+          letter-spacing: 0.04em;
+        }
+
+        textarea::placeholder {
+          color: #2a4a5e;
+          font-style: italic;
+        }
+
+        textarea:focus {
+          border-color: rgba(100, 180, 220, 0.45);
+        }
+
+        .release-btn {
+          margin-top: 1.4rem;
+          width: 100%;
+          padding: 0.9rem;
+          background: transparent;
+          border: 1px solid rgba(100, 180, 220, 0.4);
+          border-radius: 8px;
+          color: #a8d8f0;
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 1.15rem;
+          font-style: italic;
+          letter-spacing: 0.15em;
+          cursor: pointer;
+          transition: all 0.4s ease;
+        }
+
+        .release-btn:hover:not(:disabled) {
+          border-color: rgba(100, 180, 220, 0.7);
+          background: rgba(100, 180, 220, 0.07);
+          box-shadow: 0 0 24px rgba(100, 180, 220, 0.15);
+          color: #c9e8ff;
+        }
+
+        .release-btn:disabled {
+          opacity: 0.3;
+          cursor: default;
+        }
+
+        .release-scene {
+          position: fixed;
+          inset: 0;
+          background: radial-gradient(ellipse at 50% 60%, #0a1e2e 0%, #030a10 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 50;
+          animation: fadeIn 0.5s ease;
+        }
+
+        .text-display {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: clamp(1.3rem, 4vw, 2rem);
+          font-weight: 300;
+          font-style: italic;
+          color: #a8d8f0;
+          letter-spacing: 0.1em;
+          text-align: center;
+          max-width: 80vw;
+          line-height: 1.6;
+          text-shadow: 0 0 20px rgba(100, 180, 220, 0.4);
+          animation: fadeIn 0.5s ease;
+        }
+
+        .done-scene {
+          text-align: center;
+          animation: fadeIn 1s ease;
+        }
+
+        .done-title {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 2rem;
+          font-style: italic;
+          color: #c9e8ff;
+          letter-spacing: 0.1em;
+          margin-bottom: 1rem;
+          text-shadow: 0 0 30px rgba(100, 180, 220, 0.3);
+        }
+
+        .done-sub {
+          font-size: 0.85rem;
+          color: #4a7a94;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          margin-bottom: 2.5rem;
+        }
+
+        .again-btn {
+          background: transparent;
+          border: 1px solid rgba(100, 180, 220, 0.3);
+          color: #5a9ab4;
+          padding: 0.6rem 2rem;
+          border-radius: 999px;
+          font-family: 'Crimson Pro', serif;
+          font-size: 0.9rem;
+          letter-spacing: 0.15em;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
+
+        .again-btn:hover {
+          border-color: rgba(100, 180, 220, 0.6);
+          color: #a8d8f0;
+        }
+      `}</style>
+
+      <div className="believers-root">
+        {/* Background stars */}
+        <div className="stars">
+          {Array.from({ length: 40 }, (_, i) => (
+            <div
+              key={i}
+              className="star"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 4}s`,
+                animationDuration: `${2 + Math.random() * 3}s`,
+                width: Math.random() > 0.8 ? "3px" : "1.5px",
+                height: Math.random() > 0.8 ? "3px" : "1.5px",
+              }}
+            />
+          ))}
+        </div>
+
+        {phase === "write" && (
+          <>
+            <h1 className="title">believers</h1>
+
+            <p className="question">Where do you want to go?</p>
+
+            {/* Stage 1: past / future */}
+            <div className="destinations">
+              {FIRST_STAGE.map((d) => (
+                <button
+                  key={d.id}
+                  className={`dest-btn${direction === d.id ? " active" : ""}`}
+                  onClick={() => { setDirection(d.id); setSelected(null); }}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Stage 2 */}
+            {direction && (
+              <div className="destinations" style={{ marginBottom: "2rem" }}>
+                {SECOND_STAGE[direction].map((d) => (
+                  <button
+                    key={d.id}
+                    className={`dest-btn${selected === d.id ? " active" : ""}`}
+                    onClick={() => setSelected(d.id)}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {selected && (
+              <div className="write-area">
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="write it here..."
+                  autoFocus
+                />
+                <button
+                  className="release-btn"
+                  onClick={handleRelease}
+                  disabled={!text.trim()}
+                >
+                  release
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {(phase === "releasing" || phase === "done") && (
+          <div className="release-scene">
+            {phase === "releasing" && !showCanvas && (
+              <p className="text-display">{text}</p>
+            )}
+            {showCanvas && phase === "releasing" && (
+              <>
+                <p className="text-display" style={{ opacity: 0.15 }}>{text}</p>
+                <ReleaseCanvas text={text} onComplete={handleComplete} />
+              </>
+            )}
+            {phase === "done" && (
+              <div className="done-scene">
+                <p className="done-title">released.</p>
+                <button className="again-btn" onClick={handleReset}>
+                  once more
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
 
