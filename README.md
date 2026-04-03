@@ -1,4 +1,4 @@
-believers
+　　　　　　　　believers
 
 体験→believers-mocha.vercel.app
 
@@ -9,3 +9,5 @@ believers
 
 全てあなたの選択次第です。
 想っていることを書いてリリースしてください!
+
+あなたの思いは全て大切な思いです。
