@@ -409,6 +409,10 @@ export default function Believers() {
           animation: fadeIn 1s ease;
         }
 
+        .again-btn-wrapper {
+          animation: fadeIn 1.2s ease 3s both;
+        }
+
         .done-title {
           font-family: 'Cormorant Garamond', serif;
           font-size: 2rem;
@@ -533,9 +537,11 @@ export default function Believers() {
             {phase === "done" && (
               <div className="done-scene">
                 <p className="done-title">released.</p>
-                <button className="again-btn" onClick={handleReset}>
-                  once more
-                </button>
+                <div className="again-btn-wrapper">
+                  <button className="again-btn" onClick={handleReset}>
+                    once more
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -544,4 +550,3 @@ export default function Believers() {
     </>
   );
 }
-
